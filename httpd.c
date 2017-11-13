@@ -22,7 +22,7 @@
 #include <strings.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <pthread.h>
+//#include <pthread.h>
 #include <sys/wait.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -52,9 +52,9 @@ void unimplemented(int);
  * return.  Process the request appropriately.
  * Parameters: the socket connected to the client */
 /**********************************************************************/
-void accept_request(void *arg)
+void accept_request(void *arg)//C语言中，任何类型的指针都可以转换为void *类型，并且在将它转换回原来的类型时不会丢失信息。
 {
-    int client = (intptr_t)arg;
+    int client = (intptr_t)arg;//intptr_t 在stdint.h中
     char buf[1024];
     size_t numchars;
     char method[255];
@@ -77,7 +77,7 @@ void accept_request(void *arg)
     method[i] = '\0';
 
     if (strcasecmp(method, "GET") && strcasecmp(method, "POST"))
-    {
+    {//strcasecmp若参数s1 和s2 字符串相同则返回0。s1 长度大于s2 长度则返回大于0 的值，s1 长度若小于s2 长度则返回小于0 的值。
         unimplemented(client);
         return;
     }
@@ -320,9 +320,13 @@ int get_line(int sock, char *buf, int size)
     while ((i < size - 1) && (c != '\n'))
     {
         n = recv(sock, &c, 1, 0);
+		//recv参数一：指定接收端套接字描述符；
+		//参数二：指明一个缓冲区，该缓冲区用来存放recv函数接收到的数据；
+		//参数三：指明buf的长度；
+		//参数四 ：一般置为0。
         /* DEBUG printf("%02X\n", c); */
         if (n > 0)
-        {
+        {//如果recv函数在等待协议接收数据时网络中断了，那么它返回0
             if (c == '\r')
             {
                 n = recv(sock, &c, 1, MSG_PEEK);
@@ -433,12 +437,18 @@ int startup(u_short *port)
     struct sockaddr_in name;
 
     httpd = socket(PF_INET, SOCK_STREAM, 0);
+	//PF_INET?AF_INET Ipv4 网络协议
+	//SOCK_STREAM  提供双向连续且可信赖的数据流, 即TCP. 支持 OOB 机制, 在所有数据传送前必须使用connect()来建立连线状态.
     if (httpd == -1)
         error_die("socket");
-    memset(&name, 0, sizeof(name));
-    name.sin_family = AF_INET;
-    name.sin_port = htons(*port);
+	
+    memset(&name, 0, sizeof(name));//将name后的所有字符用0替换
+    name.sin_family = AF_INET;//sin_family表示协议族
+    name.sin_port = htons(*port);//存储端口号（使用网络字节顺序）
     name.sin_addr.s_addr = htonl(INADDR_ANY);
+	//htonl将主机数转换成无符号长整型网络字节顺序
+	//s_addr按照网络字节顺序存储IP地址
+	//sin_addr存储IP地址，使用in_addr这个数据结构
     if ((setsockopt(httpd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on))) < 0)  
     {  
         error_die("setsockopt failed");
@@ -450,9 +460,12 @@ int startup(u_short *port)
         socklen_t namelen = sizeof(name);
         if (getsockname(httpd, (struct sockaddr *)&name, &namelen) == -1)
             error_die("getsockname");
-        *port = ntohs(name.sin_port);
+        *port = ntohs(name.sin_port);//将一个16位数由网络字节顺序转换为主机字节顺序
     }
     if (listen(httpd, 5) < 0)
+		//listen函数使用主动连接套接口变为被连接套接口，
+	    //使得一个进程可以接受其它进程的请求，从而成为一个服务器进程。
+		//在TCP服务器编程中listen函数把进程变为一个服务器，并指定相应的套接字变为被动连接。
         error_die("listen");
     return(httpd);
 }
@@ -493,7 +506,7 @@ int main(void)
     int client_sock = -1;
     struct sockaddr_in client_name;
     socklen_t  client_name_len = sizeof(client_name);
-    pthread_t newthread;
+    //pthread_t newthread;
 
     server_sock = startup(&port);
     printf("httpd running on port %d\n", port);
@@ -505,9 +518,9 @@ int main(void)
                 &client_name_len);
         if (client_sock == -1)
             error_die("accept");
-        /* accept_request(&client_sock); */
-        if (pthread_create(&newthread , NULL, (void *)accept_request, (void *)(intptr_t)client_sock) != 0)
-            perror("pthread_create");
+        accept_request(&client_sock);
+        //if (pthread_create(&newthread , NULL, (void *)accept_request, (void *)(intptr_t)client_sock) != 0)
+        //   perror("pthread_create");
     }
 
     close(server_sock);
